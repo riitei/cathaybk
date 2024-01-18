@@ -48,9 +48,6 @@ class WebDriverFactory:
     @staticmethod
     def _create_firefox_driver():
         options = FirefoxOptions()
-        # 在此处配置 Firefox 选项
-        # ...
-
 
 class Command:
     def __init__(self, driver):
