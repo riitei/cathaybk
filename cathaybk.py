@@ -8,6 +8,7 @@ from selenium.webdriver.firefox.options import Options as FirefoxOptions
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
+
 class WebDriverContextManager:
     def __init__(self, browser_type="chrome"):
         self.browser_type = browser_type
@@ -20,7 +21,7 @@ class WebDriverContextManager:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.driver.quit()
 
-
+# create webDriver and 裝置設定參數
 class WebDriverFactory:
     mobile_emulation = {
         "deviceMetrics": {"width": 428, "height": 926, "pixelRatio": 3.0},
@@ -49,12 +50,15 @@ class WebDriverFactory:
     def _create_firefox_driver():
         options = FirefoxOptions()
 
+
 class Command:
     def __init__(self, driver):
         self.driver = driver
+
     def execute(self):
         raise NotImplementedError
 
+# 開啟頁面命令
 class OpenPageCommand(Command):
     def __init__(self, driver, url):
         super().__init__(driver)
@@ -64,16 +68,17 @@ class OpenPageCommand(Command):
         self.driver.get(self.url)
         WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, "body")))
 
-
+# selenium run click 命令模式
 class CssClickCommand(Command):
     def __init__(self, driver, css_selector):
         self.driver = driver
         self.css_selector = css_selector
+
     def execute(self):
         self.driver.find_element(By.CSS_SELECTOR, self.css_selector).click()
         WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, "body")))
 
-
+# 使用JS控制命令
 class JsClickCommand(Command):
     def __init__(self, driver, DOM, name, type=None):
         self.driver = driver
@@ -97,8 +102,10 @@ class JsClickCommand(Command):
         DOM_index = self.driver.execute_script(js, self.DOM, self.name)
         WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, "body")))
         if self.type is None:
+            # selenium run click
             self.driver.find_elements(By.CSS_SELECTOR, self.DOM)[DOM_index].click()
         elif type == 'js_click':
+            # js run click
             js_click = """
                 var selector = arguments[0];
                 var name = arguments[1];
@@ -108,8 +115,10 @@ class JsClickCommand(Command):
             """
             self.driver.execute_script(js_click, self.DOM, self.name)
         else:
+            # 回傳 DOM now index value
             return int(DOM_index)
 
+# 同時間開啟網頁截圖
 class MultipleWebPagesCommand(Command):
     def __init__(self):
         pass
@@ -121,22 +130,26 @@ class MultipleWebPagesCommand(Command):
         TakeScreenshotCommand(sub_driver, CathayBK().info_path).execute()
         sub_driver.quit()
 
-
+# 針對卡片處理流程
 class CardsCommand(Command):
     def __init__(self, driver, path):
         self.driver = driver
         self.path = path
 
     def execute(self):
+        # 目前 class index
         now_index = JsClickCommand(self.driver, '.cubre-a-iconTitle__text', CathayBK().card_name, 'count').execute()
         card_count_js = "return $('.cubre-a-iconTitle__text').eq(%d).parents('div.cubre-o-block__wrap').find('.swiper-pagination-bullet').length" % int(
             now_index)
+        # 全部 class 數量
         card_count = int(self.driver.execute_script(card_count_js))
         card_index_js = "return $('.swiper-pagination-bullet').index($('.cubre-a-iconTitle__text').eq(%d).parents('div.cubre-o-block__wrap').find('.swiper-pagination-bullet:first'))" % int(
             now_index)
         card_index = int(self.driver.execute_script(card_index_js))
+        # 卡片元素
         cards = self.driver.find_elements(By.CSS_SELECTOR, '.swiper-pagination-bullet')
         WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+        # 針對每張卡片點選
         for i in range(int(card_index), int(card_index) + int(card_count)):
             cards[i].click()
             WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.TAG_NAME, "body")))
@@ -147,6 +160,7 @@ class CardsCommand(Command):
             time.sleep(5)
             TakeScreenshotCommand(self.driver, self.path, title_name).execute()
 
+# 截圖
 class TakeScreenshotCommand(Command):
     def __init__(self, driver, path, title_name=None):
         self.driver = driver
@@ -160,9 +174,8 @@ class TakeScreenshotCommand(Command):
         self.driver.save_screenshot(photo_path)
 
 
-# 主类
+# 參數設定和程式進入點
 class CathayBK:
-
     def __init__(self):
         base_directory = os.getcwd()
         parent_folder = 'photo'
@@ -176,14 +189,14 @@ class CathayBK:
         self.card_info_name = '卡片介紹'
         self.card_name = '停發卡'
 
-    # 创建必要的文件夹
+    # 建立文件
     def setup_directories(self, base_directory, parent_folder):
         folder_path = os.path.join(base_directory, parent_folder)
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
         return folder_path
 
-    # 执行导航和截图命令
+    # 測試主流程
     def process(self, url, path):
         # 網站
         OpenPageCommand(self.driver, url).execute()
@@ -211,6 +224,7 @@ class CathayBK:
         with WebDriverContextManager() as driver:
             self.driver = driver
             self.process(url, self.index_path)
+
 
 if __name__ == '__main__':
     CathayBK().main()
